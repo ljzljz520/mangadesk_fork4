@@ -1,11 +1,13 @@
 package utils
 
 const (
-	LoginPageID  = "login_page" // Page IDs
-	MainPageID   = "main_page"
-	MangaPageID  = "manga_page"
-	HelpPageID   = "help_page"
-	SearchPageID = "search_page"
+	LoginPageID      = "login_page" // Page IDs
+	MainPageID       = "main_page"
+	MangaPageID      = "manga_page"
+	HelpPageID       = "help_page"
+	SearchPageID     = "search_page"
+	VolumePlanPageID = "volume_plan_page"
+	ReleaseChooserID = "release_chooser_page"
 
 	LoginLogoutCfmModalID        = "logout_modal" // Modal IDs
 	StoreCredentialErrorModalID  = "store_cred_error_modal"
@@ -17,4 +19,6 @@ const (
 	GenericAPIErrorModalID       = "api_error_modal"
 	NotLoggedInErrorModalID      = "not_logged_in_error_modal"
 	OffsetErrorModalID           = "offset_error_modal"
+	VolumePlanConflictModalID    = "volume_plan_conflict_modal"
+	VolumePlanConfirmModalID     = "volume_plan_confirm_modal"
 )

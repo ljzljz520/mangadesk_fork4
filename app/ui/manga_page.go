@@ -240,13 +240,7 @@ func (p *MangaPage) setChapterTable() {
 		downloadCell := tview.NewTableCell(downloadStatus).SetTextColor(utils.MangaPageDownloadStatColor)
 
 		// Scanlation group
-		var scanGroup string
-		for _, relation := range chapter.Relationships {
-			if relation.Type == mangodex.ScanlationGroupRel {
-				scanGroup = relation.Attributes.(*mangodex.ScanlationGroupAttributes).Name
-				break
-			}
-		}
+		scanGroup := chapterScanGroupName(&chapter)
 		scanGroupCell := tview.NewTableCell(fmt.Sprintf("%-15s", scanGroup)).SetMaxWidth(15).
 			SetTextColor(utils.MangaPageScanGroupColor)
 

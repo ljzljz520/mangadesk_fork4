@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,19 +24,64 @@ const (
 	maxRetries = 5
 )
 
-// downloadChapters : Download current chapters specified by the user.
+// downloadItem : One ordered unit of work: the exact chapter version to save
+// plus the manga page table row whose status should be refreshed (-1 if the
+// chapter is not currently displayed on the table, e.g. plan downloads).
+type downloadItem struct {
+	chapter *mangodex.Chapter
+	row     int
+}
+
+// downloadChapters : Download current chapters specified by the user via
+// single-row activation or manual multi-select.
 func (p *MangaPage) downloadChapters(selection map[int]struct{}, attemptNo int) {
-	// Download the selected chapters.
-	errored := map[int]struct{}{}
+	items := make([]downloadItem, 0, len(selection))
 	for index := range selection {
 		// Get the reference to the chapter.
-		var (
-			chapter *mangodex.Chapter
-			ok      bool
-		)
-		if chapter, ok = p.Table.GetCell(index, 0).GetReference().(*mangodex.Chapter); !ok {
+		chapter, ok := p.Table.GetCell(index, 0).GetReference().(*mangodex.Chapter)
+		if !ok {
 			return
 		}
+		items = append(items, downloadItem{chapter: chapter, row: index})
+	}
+	// Stable top-to-bottom order for manual multi-selects.
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].row < items[j].row
+	})
+	p.downloadItems(items, attemptNo)
+}
+
+// downloadChapterIDs : Download an immutable, ordered sequence of full chapter
+// IDs produced by a confirmed volume plan. The sequence itself is the source
+// of truth: versions are never re-resolved here, and retries preserve order.
+func (p *MangaPage) downloadChapterIDs(ids []string, byID map[string]*mangodex.Chapter, attemptNo int) {
+	rowForID := map[string]int{}
+	for row := 1; row < p.Table.GetRowCount(); row++ {
+		if chapter, ok := p.Table.GetCell(row, 0).GetReference().(*mangodex.Chapter); ok {
+			rowForID[chapter.ID] = row
+		}
+	}
+
+	items := make([]downloadItem, 0, len(ids))
+	for _, id := range ids {
+		chapter, ok := byID[id]
+		if !ok || chapter == nil {
+			log.Printf("Download plan references unknown chapter ID, skipping: %s", id)
+			continue
+		}
+		items = append(items, downloadItem{chapter: chapter, row: rowForID[id]})
+	}
+	p.downloadItems(items, attemptNo)
+}
+
+// downloadItems : Download an ordered list of concrete chapter versions.
+// Failed items are retried in their original relative order.
+func (p *MangaPage) downloadItems(items []downloadItem, attemptNo int) {
+	errored := make([]downloadItem, 0)
+	shortIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		chapter := item.chapter
+		shortIDs = append(shortIDs, strings.SplitN(chapter.ID, "-", 2)[0])
 
 		// Save the current chapter.
 		err := p.saveChapter(chapter)
@@ -44,14 +90,17 @@ func (p *MangaPage) downloadChapters(selection map[int]struct{}, attemptNo int) 
 			msg := fmt.Sprintf("Error saving %s - Chapter: %s, %s - %s",
 				p.Manga.GetTitle("en"), chapter.GetChapterNum(), chapter.GetTitle(), err.Error())
 			log.Println(msg)
-			errored[index] = struct{}{}
+			errored = append(errored, item)
 			continue
 		}
 
-		core.App.TView.QueueUpdateDraw(func() {
-			downloadCell := tview.NewTableCell(readStatus).SetTextColor(utils.MangaPageDownloadStatColor)
-			p.Table.SetCell(index, 2, downloadCell)
-		})
+		if item.row >= 0 {
+			row := item.row
+			core.App.TView.QueueUpdateDraw(func() {
+				downloadCell := tview.NewTableCell(readStatus).SetTextColor(utils.MangaPageDownloadStatColor)
+				p.Table.SetCell(row, 2, downloadCell)
+			})
+		}
 	}
 
 	var (
@@ -59,8 +108,9 @@ func (p *MangaPage) downloadChapters(selection map[int]struct{}, attemptNo int) 
 		modal   *tview.Modal
 		modalID string
 	)
-	// Use unique ID for this particular download.
-	modalID = fmt.Sprintf("%s - %s - %v", utils.DownloadFinishedModalID, p.Manga.GetTitle("en"), selection)
+	// Use unique ID for this particular download queue.
+	modalID = fmt.Sprintf("%s - %s - %s",
+		utils.DownloadFinishedModalID, p.Manga.GetTitle("en"), strings.Join(shortIDs, ","))
 
 	msg.WriteString("Last Download Queue finished.\n")
 	msg.WriteString(fmt.Sprintf("Manga: %s\n", p.Manga.GetTitle("en")))
@@ -71,7 +121,7 @@ func (p *MangaPage) downloadChapters(selection map[int]struct{}, attemptNo int) 
 		if attemptNo < maxRetries {
 			msg.WriteString("\nRetry failed downloads?")
 			modal = confirmModal(modalID, msg.String(), "Retry", func() {
-				go p.downloadChapters(errored, attemptNo+1)
+				go p.downloadItems(errored, attemptNo+1)
 			})
 		} else {
 			msg.WriteString("\nMaximum retries reached.")

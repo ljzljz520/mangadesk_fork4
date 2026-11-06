@@ -212,6 +212,8 @@ func (p *MangaPage) setHandlers(cancel context.CancelFunc) {
 			p.ctrlRInput()
 		case tcell.KeyCtrlQ:
 			p.ctrlQInput()
+		case tcell.KeyCtrlV: // User wants to build a by-volume download plan.
+			p.ctrlVInput()
 		}
 		return event
 	})

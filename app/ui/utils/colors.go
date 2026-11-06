@@ -40,6 +40,17 @@ const ( // Manga page colors
 	MangaPageHighlightColor    = tcell.ColorMediumSpringGreen
 )
 
+const ( // Volume plan page colors
+	PlanPageGridTitleColor   = tcell.ColorOrange
+	PlanPageGridBorderColor  = tcell.ColorLightGrey
+	PlanPageTableBorderColor = tcell.ColorGrey
+	PlanPageTableTitleColor  = tcell.ColorLightSkyBlue
+	PlanPageSeqColor         = tcell.ColorLightGrey
+	PlanPageOKColor          = tcell.ColorMediumSpringGreen
+	PlanPageConflictColor    = tcell.ColorOrangeRed
+	PlanPagePickedColor      = tcell.ColorDarkSalmon
+)
+
 const ( // Search page colors
 	SearchPageGridTitleColor   = tcell.ColorOrange
 	SearchPageGridBorderColor  = tcell.ColorLightGrey
